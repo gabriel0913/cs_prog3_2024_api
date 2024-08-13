@@ -66,7 +66,8 @@ sw.get('/listpatentes', function (req, res, next) {
             res.status(400).send('{' + err + '}');
         } else {
 
-            var q = "select codigo,nome,quant_min_pontos,cor,logotipo,to_char(datacriacao, 'dd/mm/yyyy hh24:mi:ss') as datacriacao from tb_patente order by codigo asc;"
+            var q = "select codigo,nome,quant_min_pontos,cor,logotipo,to_char(datacriacao, 'dd/mm/yyyy hh24:mi:ss') " +
+                "as datacriacao from tb_patente order by codigo asc;"
 
             client.query(q, function (err, result) {
                 done(); // closing the connection;
@@ -94,18 +95,26 @@ sw.get('/listjogadores', function (req, res, next) {
             res.status(400).send('{' + err + '}');
         } else {
 
-            var q = "select j.nickname,senha,quantpontos,quantdinheiro,to_char(datacadastro, 'dd/mm/yyyy hh24:mi:ss') as datacadastro,to_char(data_ultimo_login, 'dd/mm/yyyy hh24:mi:ss') as data_ultimo_login,situacao,nome from tb_jogador j,tb_patente,tb_jogador_conquista_patente jp where codigo=codpatente and j.nickname=jp.nickname order by codigo asc;";
-
-            client.query(q, function (err, result) {
-                done(); // closing the connection;
-                if (err) {
-                    console.log('retornou 400 no listjogador');
+            var q = "select nickname,senha,quantpontos,quantdinheiro,to_char(datacadastro, 'dd/mm/yyyy hh24:mi:ss') as datacadastro,to_char(data_ultimo_login, 'dd/mm/yyyy hh24:mi:ss') as data_ultimo_login,situacao, 0 as patentes, e.cep, e.complemento from tb_jogador j, tb_endereco e where e.nicknamejogador=j.nickname order by nickname asc"
+                
+            client.query(q,async function (err, result) {
+                                if (err) {
+                    console.log('retornou 400 no listjogadores');
                     console.log(err);
 
                     res.status(400).send('{' + err + '}');
                 } else {
 
-                    //console.log('retornou 201 no /listendereco');
+                   for(var i=0; i<result.rows.length; i++){
+                        try{
+                            pj = await client.query('select codpatente from'
+                           + ' tb_jogador_conquista_patente '
+                             + 'where nickname = $1', [result.rows[i].nickname])
+                        } catch(err){
+                            res.status(400).send('{'+err+'}')
+                        }
+                    }
+                    done(); // closing the connection;
                     res.status(201).send(result.rows);
                 }
             });
