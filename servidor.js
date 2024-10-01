@@ -85,6 +85,7 @@ sw.get('/listpatentes', function (req, res, next) {
         }
     });
 });
+
 sw.get('/listjogadores', function (req, res, next) {
 
     postgres.connect(function (err, client, done) {
@@ -136,6 +137,58 @@ sw.get('/listjogadores', function (req, res, next) {
     });
 });
 
+sw.get('/listmapas', function (req, res, next) {
+
+    postgres.connect(function (err, client, done) {
+
+        if (err) {
+
+            console.log("Nao conseguiu acessar o  BD " + err);
+            res.status(400).send('{' + err + '}');
+        } else {
+
+            var q = "select codigo, nome, to_char(datacadastromapa, 'dd/mm/yyyy') " +
+                "as datacadastromapa, status," +
+                " 0 as modo, 0 as locais from tb_mapa order by codigo asc"
+
+            client.query(q, async function (err, result) {
+                if (err) {
+
+                    res.status(400).send('{' + err + '}');
+                } else {
+
+                    for (var i = 0; i < result.rows.length; i++) {
+                        try {
+                            pj = await client.query('select codigo, nome from'
+                                + ' tb_modo '
+                                + 'where codigo = $1', [result.rows[i].codigo])
+                            result.rows[i].modo = pj.rows;
+                        } catch (err) {
+                            res.status(400).send('{' + err + '}')
+                        }
+
+                    };
+
+                    for (var i = 0; i < result.rows.length; i++) {
+                        try {
+                            ej = await client.query(
+                                'select codlocal as codigo from'
+                                + ' tb_mapa_locais '
+                                + 'where codmapa = $1', [result.rows[i].codigo])
+                            result.rows[i].locais = ej.rows;
+                        } catch (err) {
+
+                            res.status(400).send('{' + err + '}')
+                        }
+                    };
+                    done(); // closing the connection;
+                    res.status(201).send(result.rows);
+                }
+            });
+        }
+    });
+});
+
 sw.post('/insertjogador', function (req, res, next) {
 
     postgres.connect(function (err, client, done) {
@@ -149,18 +202,17 @@ sw.post('/insertjogador', function (req, res, next) {
             var q1 = {
                 text: 'insert into tb_jogador (nickname, senha, quantPontos, quantdinheiro, datacadastro, ' +
                     ' situacao) ' +
-                    ' values ($1,$2,$3,$4,now(), $5) ' +
-                    'returning nickname, senha, quantpontos, quantdinheiro, ' +
-                    ' to_char(datacadastro, \'dd/mm/yyyy\') as datacadastro, ' +
-                    ' to_char(data_ultimo_login, \'dd/mm/yyyy\') as data_ultimo_login, situacao;',
+                    ' values ($1,$2,$3,$4,now(),$5) ' +
+                    'returning nickname, senha, quantPontos, quantdinheiro, ' +
+                    ' to_char(datacadastro, \'dd/mm/yyyy\') as datacadastro, situacao;',
                 values: [req.body.nickname,
                 req.body.senha,
-                req.body.quantpontos,
+                req.body.quantPontos,
                 req.body.quantdinheiro,
                 req.body.situacao == true ? "A" : "I"]
             }
             var q2 = {
-                text: 'insert into tb_endereco (complemento, cep, nicknamejogador) values ($1, $2, $3) returning codigo, complemento, cep;',
+                text: 'insert into tb_endereco (complemento, cep, nicknamejogador) values ($1, $2, $3) returning complemento, cep;',
                 values: [req.body.endereco.complemento,
                 req.body.endereco.cep,
                 req.body.nickname]
@@ -183,7 +235,7 @@ sw.post('/insertjogador', function (req, res, next) {
 
                                 try {
 
-                                    await client.query('insert into tb_jogador_conquista_patente (codpatente, nickname) values ($1, $2)', [req.body.patentes[i].codigo, req.body.nickname])
+                                    pj = await client.query('insert into tb_jogador_conquista_patente (codpatente, nickname) values ($1, $2)', [req.body.patentes[i].codpatente, req.body.nickname])
 
                                 } catch (err) {
 
@@ -212,6 +264,7 @@ sw.post('/insertjogador', function (req, res, next) {
         }
     });
 });
+
 sw.post('/updatejogador', function (req, res, next) {
 
     postgres.connect(function (err, client, done) {
@@ -352,6 +405,7 @@ sw.post('/insertpatente', function (req, res, next) {
         }
     });
 });
+
 sw.post('/updatepatente', function (req, res, next) {
 
     postgres.connect(function (err, client, done) {
@@ -396,6 +450,7 @@ sw.post('/updatepatente', function (req, res, next) {
         }
     });
 });
+
 sw.get('/deletepatente/:codigo', (req, res) => {
 
     postgres.connect(function (err, client, done) {
